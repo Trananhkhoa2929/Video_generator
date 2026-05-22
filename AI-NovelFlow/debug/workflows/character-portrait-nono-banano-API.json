@@ -1,0 +1,107 @@
+{
+  "8": {
+    "inputs": {
+      "filename_prefix": "jpm/Han_Daoguo",
+      "images": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Image"
+    }
+  },
+  "11": {
+    "inputs": {
+      "text": [
+        "24",
+        0
+      ],
+      "model": "gemini-3-pro-image-preview",
+      "temperature": 1,
+      "top_p": 0.95,
+      "apikey": [
+        "27",
+        0
+      ],
+      "seed": 717414513,
+      "max_tokens": 32768
+    },
+    "class_type": "Comfly_nano_banana",
+    "_meta": {
+      "title": "Zhenzhen_nano_banana"
+    }
+  },
+  "23": {
+    "inputs": {
+      "value": "尺寸:1088x1920"
+    },
+    "class_type": "PrimitiveString",
+    "_meta": {
+      "title": "String"
+    }
+  },
+  "24": {
+    "inputs": {
+      "string_a": [
+        "26",
+        0
+      ],
+      "string_b": [
+        "23",
+        0
+      ],
+      "delimiter": ""
+    },
+    "class_type": "StringConcatenate",
+    "_meta": {
+      "title": "Concatenate"
+    }
+  },
+  "26": {
+    "inputs": {
+      "text": "character portrait, 3D Pixar-style animated film, stylized 3D character, soft global illumination, subsurface scattering, highly detailed fur texture, cinematic lighting, soft rim light, 体型高大强壮，皮毛粗糙呈灰色或褐色，牛角弯曲，眼睛大而温和，四肢粗壮，小腿肚明显，吃草时姿态悠闲，整体给人一种沉稳可靠的感觉。, 一头悠闲的老牛，经验丰富，对小马友善，但基于自身高大的体型给出建议。, single character, centered, symmetrical composition, clean studio background, professional character design sheet, sharp focus, ultra high resolution, 8k, anthropomorphic animal character, fully animal anatomy, no humans, no human skin, no human ears\n\n"
+    },
+    "class_type": "CR Text",
+    "_meta": {
+      "title": "🔤 CR Text"
+    }
+  },
+  "27": {
+    "inputs": {
+      "api_base": "zhenzhen",
+      "apikey": "get from https://ai.t8star.cn/token",
+      "custom_ip": ""
+    },
+    "class_type": "Comfly_api_set",
+    "_meta": {
+      "title": "Zhenzhen API Settings"
+    }
+  },
+  "28": {
+    "inputs": {
+      "anything": [
+        "11",
+        1
+      ]
+    },
+    "class_type": "easy showAnything",
+    "_meta": {
+      "title": "Show Any"
+    }
+  },
+  "29": {
+    "inputs": {
+      "text": "character portrait, 3D Pixar-style animated film, stylized 3D character, soft global illumination, subsurface scattering, highly detailed fur texture, cinematic lighting, soft rim light, 体型高大强壮，皮毛粗糙呈灰色或褐色，牛角弯曲，眼睛大而温和，四肢粗壮，小腿肚明显，吃草时姿态悠闲，整体给人一种沉稳可靠的感觉。, 一头悠闲的老牛，经验丰富，对小马友善，但基于自身高大的体型给出建议。, single character, centered, symmetrical composition, clean studio background, professional character design sheet, sharp focus, ultra high resolution, 8k, anthropomorphic animal character, fully animal anatomy, no humans, no human skin, no human ears\n\n尺寸:1088x1920",
+      "anything": [
+        "24",
+        0
+      ]
+    },
+    "class_type": "easy showAnything",
+    "_meta": {
+      "title": "Show Any"
+    }
+  }
+}
