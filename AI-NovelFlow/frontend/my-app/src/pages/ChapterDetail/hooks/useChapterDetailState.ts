@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from '../../../stores/toastStore';
 import { useTranslation } from '../../../stores/i18nStore';
 import { novelApi } from '../../../api/novels';
-import { chapterApi, type ParseResult } from '../../../api/chapters';
+import { chapterApi, type ParseResult, type SegmentData } from '../../../api/chapters';
+import { shotsApi, type Shot } from '../../../api/shots';
 import { propApi } from '../../../api/props';
 import type { Chapter, Novel } from '../../../types';
 import type { ParseResultData, PreviewImageState } from '../types';
@@ -23,6 +24,14 @@ export function useChapterDetailState() {
   const [parsingChapter, setParsingChapter] = useState(false);
   const [parsingScenes, setParsingScenes] = useState(false);
   const [parsingProps, setParsingProps] = useState(false);
+  const [splittingSegments, setSplittingSegments] = useState(false);
+  const [enrichingSegments, setEnrichingSegments] = useState(false);
+  const [generatingPanels, setGeneratingPanels] = useState(false);
+  const [creatingShots, setCreatingShots] = useState(false);
+  const [extractingAssets, setExtractingAssets] = useState(false);
+  const [segmentData, setSegmentData] = useState<SegmentData | null>(null);
+  const [storyboardData, setStoryboardData] = useState<any>(null);
+  const [shots, setShots] = useState<Shot[]>([]);
   const [parseResult, setParseResult] = useState<ParseResultData | null>(null);
   const [parseScenesResult, setParseScenesResult] = useState<ParseResultData | null>(null);
   const [parsePropsResult, setParsePropsResult] = useState<ParseResultData | null>(null);
@@ -39,6 +48,17 @@ export function useChapterDetailState() {
         setChapter(chapterData.data);
         setTitle(chapterData.data.title);
         setContent(chapterData.data.content || '');
+        const parsedData = parseChapterData(chapterData.data.parsedData);
+        setSegmentData(parsedData?.segments || null);
+        setStoryboardData(parsedData?.storyboard || null);
+      }
+
+      try {
+        const shotData = await shotsApi.getShots(id!, cid!);
+        setShots(shotData.success ? shotData.data || [] : []);
+      } catch (error) {
+        console.error('Fetch shots failed:', error);
+        setShots([]);
       }
     } catch (error) {
       console.error('获取数据失败:', error);
@@ -148,6 +168,125 @@ export function useChapterDetailState() {
     }
   };
 
+  const handleSplitSegments = async () => {
+    if (!content.trim()) { toast.warning(t('chapterDetail.chapterEmptyError')); return; }
+    setSplittingSegments(true);
+    try {
+      const data = await chapterApi.splitSegments(id!, cid!, true);
+      if (data.success) {
+        setSegmentData(data.data || null);
+        toast.success(`Segments created: ${data.data?.raw?.length || 0}`);
+        await fetchData();
+      } else {
+        toast.error(`Segment split failed: ${data.message || 'unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Segment split failed:', error);
+      toast.error('Segment split failed');
+    } finally {
+      setSplittingSegments(false);
+    }
+  };
+
+  const handleEnrichSegments = async () => {
+    if (!content.trim()) { toast.warning(t('chapterDetail.chapterEmptyError')); return; }
+    setEnrichingSegments(true);
+    try {
+      const data = await chapterApi.enrichSegments(id!, cid!, true);
+      if (data.success) {
+        setSegmentData(data.data || null);
+        toast.success(`Segments enriched: ${data.data?.enriched?.length || 0}`);
+        await fetchData();
+      } else {
+        toast.error(`Segment enrichment failed: ${data.message || 'unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Segment enrichment failed:', error);
+      toast.error('Segment enrichment failed');
+    } finally {
+      setEnrichingSegments(false);
+    }
+  };
+
+  const handleExtractVisualAssets = async () => {
+    if (!content.trim()) { toast.warning(t('chapterDetail.chapterEmptyError')); return; }
+    setExtractingAssets(true);
+    try {
+      const data = await chapterApi.extractVisualAssets(id!, cid!);
+      if (data.success) {
+        const storage = (data.data as any)?.storage || {};
+        const created = storage.created || {};
+        const updated = storage.updated || {};
+        const createdTotal =
+          (created.characters?.length || 0) +
+          (created.scenes?.length || 0) +
+          (created.props?.length || 0);
+        const updatedTotal =
+          (updated.characters?.length || 0) +
+          (updated.scenes?.length || 0) +
+          (updated.props?.length || 0);
+        toast.success(`Assets extracted: ${createdTotal} created, ${updatedTotal} updated`);
+        await fetchData();
+      } else {
+        toast.error(`Asset extraction failed: ${data.message || (data as any).error || 'unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Asset extraction failed:', error);
+      toast.error('Asset extraction failed');
+    } finally {
+      setExtractingAssets(false);
+    }
+  };
+
+  const handleGeneratePanels = async (createShots = false) => {
+    if (!content.trim()) { toast.warning(t('chapterDetail.chapterEmptyError')); return; }
+
+    if (createShots) {
+      setCreatingShots(true);
+      try {
+        const storedPanelCount =
+          (Array.isArray(storyboardData?.normalized_panels) ? storyboardData.normalized_panels.length : 0) ||
+          (Array.isArray(storyboardData?.panels) ? storyboardData.panels.length : 0);
+        if (!storedPanelCount) {
+          toast.warning('Generate panels before creating shots');
+          return;
+        }
+
+        const data = await chapterApi.convertStoryboardPanelsToShots(id!, cid!, true);
+        if (data.success && !(data.data as any)?.error) {
+          const shotCount = (data.data as any)?.shots?.length || 0;
+          toast.success(`Shots created: ${shotCount}`);
+          await fetchData();
+        } else {
+          toast.error(`Shot creation failed: ${(data.data as any)?.error || data.message || (data as any).error || 'unknown error'}`);
+        }
+      } catch (error) {
+        console.error('Shot creation failed:', error);
+        toast.error('Shot creation failed');
+      } finally {
+        setCreatingShots(false);
+      }
+      return;
+    }
+
+    setGeneratingPanels(true);
+    try {
+      const data = await chapterApi.generateStoryboardPanels(id!, cid!, createShots);
+      if (data.success) {
+        const panelCount = (data.data as any)?.panelCount || (data.data as any)?.normalizedPanels?.length || 0;
+        toast.success(`Panels generated: ${panelCount}`);
+        await fetchData();
+      } else {
+        toast.error(`Panel generation failed: ${data.message || (data as any).error || 'unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Panel generation failed:', error);
+      toast.error('Panel generation failed');
+    } finally {
+      setGeneratingPanels(false);
+    }
+  };
+
   const openImagePreview = useCallback((url: string, index: number, images: string[]) => {
     setPreviewImage({ isOpen: true, url, index, images });
   }, []);
@@ -178,9 +317,23 @@ export function useChapterDetailState() {
   return {
     // State
     id, cid, chapter, novel, isLoading, isSaving, content, setContent, title, setTitle,
-    previewImage, parsingChapter, parsingScenes, parsingProps, parseResult, parseScenesResult, parsePropsResult,
+    previewImage, parsingChapter, parsingScenes, parsingProps, splittingSegments, enrichingSegments,
+    generatingPanels, creatingShots, extractingAssets, segmentData, storyboardData, shots, parseResult, parseScenesResult, parsePropsResult,
     // Actions
     handleSave, handleDelete, handleGenerate, handleParseCharacters, handleParseScenes, handleParseProps,
+    handleSplitSegments, handleEnrichSegments, handleExtractVisualAssets, handleGeneratePanels,
     openImagePreview, closeImagePreview, navigatePreview,
   };
+}
+
+function parseChapterData(value: unknown): any {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return value;
 }

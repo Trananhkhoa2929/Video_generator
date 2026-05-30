@@ -146,6 +146,21 @@ export const LLM_PROVIDER_PRESETS: LLMProviderPreset[] = [
     apiKeyPlaceholder: '...',
     apiKeyHelp: '支持任何兼容 OpenAI API 格式的服务',
   },
+  {
+    id: 'chrome_debug',
+    name: 'Chrome Debug WebUI',
+    defaultApiUrl: 'http://127.0.0.1:9222',
+    models: [
+      { id: 'auto', name: 'Auto Detect Chat Tab', description: 'Auto detect active chat tab' },
+      { id: 'chatgpt', name: 'ChatGPT', description: 'chatgpt.com' },
+      { id: 'claude', name: 'Claude', description: 'claude.ai' },
+      { id: 'gemini', name: 'Gemini', description: 'gemini.google.com' },
+      { id: 'poe', name: 'Poe', description: 'poe.com' },
+      { id: 'deepseek', name: 'DeepSeek Chat', description: 'chat.deepseek.com' },
+    ],
+    apiKeyPlaceholder: 'Not required',
+    apiKeyHelp: 'No API Key is required. Please ensure Chrome is running with --remote-debugging-port=9222',
+  },
 ];
 
 /**

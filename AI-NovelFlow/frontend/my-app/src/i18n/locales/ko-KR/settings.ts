@@ -40,6 +40,7 @@ export default {
       aliyunBailian: 'Alibaba Cloud Bailian',
       ollama: 'Ollama',
       custom: '사용자 정의 API',
+      chromeDebug: 'Chrome 디버그 WebUI',
     },
     modelNames: {
       'qwen36MaxPreview': 'Qwen 3.6 Max Preview',

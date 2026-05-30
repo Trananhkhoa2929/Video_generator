@@ -32,8 +32,8 @@ export const characterApi = {
     api.post<Character>(`/characters/${characterId}/generate-appearance/`),
 
   /** 生成人设图任务 */
-  generatePortrait: (characterId: string) => 
-    api.post(`/characters/${characterId}/generate-portrait/`),
+  generatePortrait: (characterId: string, provider: 'comfyui' | 'webui' = 'comfyui') => 
+    api.post(`/characters/${characterId}/generate-portrait/?provider=${provider}`),
 
   /** 上传角色图片 */
   uploadImage: async (characterId: string, file: File) => {

@@ -17,6 +17,7 @@ from app.repositories import TaskRepository, WorkflowRepository, PropRepository
 from app.services.comfyui import ComfyUIService
 from app.services.file_storage import file_storage
 from app.services.prompt_builder import build_prop_prompt, get_style
+from app.services.webui_image_service import WebUIImageService
 
 
 class PropService:
@@ -29,7 +30,8 @@ class PropService:
     def create_prop_image_task(
         self,
         prop_id: str,
-        db: Session = None
+        db: Session = None,
+        provider: str = "comfyui"
     ) -> Dict[str, Any]:
         """
         创建道具图生成任务
@@ -45,6 +47,9 @@ class PropService:
         prop_repo = PropRepository(db)
         task_repo = TaskRepository(db)
         workflow_repo = WorkflowRepository(db)
+        image_provider = (provider or "comfyui").lower()
+        if image_provider not in ("comfyui", "webui"):
+            return {"success": False, "message": f"Unsupported image provider: {provider}"}
 
         # 获取道具
         prop = prop_repo.get_by_id(prop_id)
@@ -77,9 +82,10 @@ class PropService:
         if not workflow:
             workflow = workflow_repo.get_active_by_type("scene")
 
-        is_valid, error_msg = self._validate_workflow_node_mapping(workflow, "prop")
-        if not is_valid:
-            return {"success": False, "message": error_msg}
+        if image_provider == "comfyui":
+            is_valid, error_msg = self._validate_workflow_node_mapping(workflow, "prop")
+            if not is_valid:
+                return {"success": False, "message": error_msg}
 
         # 创建任务
         task = Task(
@@ -104,7 +110,8 @@ class PropService:
                 prop_id,
                 prop.name,
                 prop.appearance,
-                prop.description
+                prop.description,
+                image_provider
             )
         )
 
@@ -123,7 +130,8 @@ class PropService:
         prop_id: str,
         name: str,
         appearance: str,
-        description: str
+        description: str,
+        image_provider: str = "comfyui"
     ):
         """
         后台任务：生成道具图
@@ -199,6 +207,51 @@ class PropService:
             # 保存提示词
             task.prompt_text = prompt
             db.commit()
+
+            if image_provider == "webui":
+                task.workflow_name = "Web UI Image Reference"
+                task.workflow_json = json.dumps(
+                    {"provider": "webui", "assetType": "prop", "prompt": prompt},
+                    ensure_ascii=False,
+                    indent=2
+                )
+                task.current_step = "Sending prompt to Web UI image generator..."
+                task.progress = 30
+                db.commit()
+
+                result = await WebUIImageService().generate_asset_image(
+                    prompt=prompt,
+                    asset_type="prop",
+                    asset_name=name,
+                    novel_id=task.novel_id or "default",
+                    asset_context={
+                        "description": description,
+                        "appearance": raw_appearance,
+                    }
+                )
+
+                if result.get("success"):
+                    task.result_url = result.get("image_url")
+                    task.status = "completed"
+                    task.progress = 100
+                    task.current_step = "Generated through Web UI and saved"
+                    task.completed_at = datetime.utcnow()
+
+                    prop = prop_repo.get_by_id(prop_id)
+                    if prop:
+                        prop.image_url = task.result_url
+                        prop.generating_status = "completed"
+                else:
+                    task.status = "failed"
+                    task.error_message = result.get("message", "Web UI generation failed")
+                    task.current_step = "Web UI generation failed"
+
+                    prop = prop_repo.get_by_id(prop_id)
+                    if prop:
+                        prop.generating_status = "failed"
+
+                db.commit()
+                return
 
             # 获取工作流JSON字符串
             workflow_json_str = workflow.workflow_json if workflow else None

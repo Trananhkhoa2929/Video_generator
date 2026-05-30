@@ -408,6 +408,7 @@ async def parse_props(
 @router.post("/{prop_id}/generate-image", response_model=dict)
 async def generate_prop_image(
     prop_id: str,
+    provider: str = Query("comfyui", description="Image provider: comfyui or webui"),
     db: Session = Depends(get_db)
 ):
     """
@@ -419,7 +420,7 @@ async def generate_prop_image(
     from app.services.prop_image_service import PropService
 
     prop_service = PropService(db)
-    result = prop_service.create_prop_image_task(prop_id, db)
+    result = prop_service.create_prop_image_task(prop_id, db, provider=provider)
 
     if not result.get("success"):
         raise HTTPException(status_code=400, detail=result.get("message"))

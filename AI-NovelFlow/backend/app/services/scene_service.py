@@ -17,6 +17,7 @@ from app.repositories import TaskRepository, WorkflowRepository, SceneRepository
 from app.services.comfyui import ComfyUIService
 from app.services.file_storage import file_storage
 from app.services.prompt_builder import build_scene_prompt, get_style
+from app.services.webui_image_service import WebUIImageService
 
 
 class SceneService:
@@ -29,7 +30,8 @@ class SceneService:
     def create_scene_image_task(
         self,
         scene_id: str,
-        db: Session = None
+        db: Session = None,
+        provider: str = "comfyui"
     ) -> Dict[str, Any]:
         """
         创建场景图生成任务
@@ -45,6 +47,9 @@ class SceneService:
         scene_repo = SceneRepository(db)
         task_repo = TaskRepository(db)
         workflow_repo = WorkflowRepository(db)
+        image_provider = (provider or "comfyui").lower()
+        if image_provider not in ("comfyui", "webui"):
+            return {"success": False, "message": f"Unsupported image provider: {provider}"}
         
         # 获取场景
         scene = scene_repo.get_by_id(scene_id)
@@ -71,10 +76,11 @@ class SceneService:
             }
         
         # 获取并验证工作流
-        workflow = workflow_repo.get_active_by_type("scene")
-        is_valid, error_msg = self._validate_workflow_node_mapping(workflow, "scene")
-        if not is_valid:
-            return {"success": False, "message": error_msg}
+        if image_provider == "comfyui":
+            workflow = workflow_repo.get_active_by_type("scene")
+            is_valid, error_msg = self._validate_workflow_node_mapping(workflow, "scene")
+            if not is_valid:
+                return {"success": False, "message": error_msg}
         
         # 创建任务
         task = Task(
@@ -99,7 +105,8 @@ class SceneService:
                 scene_id,
                 scene.name,
                 scene.setting,
-                scene.description
+                scene.description,
+                image_provider
             )
         )
         
@@ -118,7 +125,8 @@ class SceneService:
         scene_id: str,
         name: str,
         setting: str,
-        description: str
+        description: str,
+        image_provider: str = "comfyui"
     ):
         """
         后台任务：生成场景图
@@ -186,6 +194,51 @@ class SceneService:
             # 保存提示词
             task.prompt_text = prompt
             db.commit()
+
+            if image_provider == "webui":
+                task.workflow_name = "Web UI Image Reference"
+                task.workflow_json = json.dumps(
+                    {"provider": "webui", "assetType": "scene", "prompt": prompt},
+                    ensure_ascii=False,
+                    indent=2
+                )
+                task.current_step = "Sending prompt to Web UI image generator..."
+                task.progress = 30
+                db.commit()
+
+                result = await WebUIImageService().generate_asset_image(
+                    prompt=prompt,
+                    asset_type="scene",
+                    asset_name=name,
+                    novel_id=task.novel_id or "default",
+                    asset_context={
+                        "description": description,
+                        "setting": setting,
+                    }
+                )
+
+                if result.get("success"):
+                    task.result_url = result.get("image_url")
+                    task.status = "completed"
+                    task.progress = 100
+                    task.current_step = "Generated through Web UI and saved"
+                    task.completed_at = datetime.utcnow()
+
+                    scene = scene_repo.get_by_id(scene_id)
+                    if scene:
+                        scene.image_url = task.result_url
+                        scene.generating_status = "completed"
+                else:
+                    task.status = "failed"
+                    task.error_message = result.get("message", "Web UI generation failed")
+                    task.current_step = "Web UI generation failed"
+
+                    scene = scene_repo.get_by_id(scene_id)
+                    if scene:
+                        scene.generating_status = "failed"
+
+                db.commit()
+                return
 
             # 获取工作流JSON字符串
             workflow_json_str = workflow.workflow_json if workflow else None

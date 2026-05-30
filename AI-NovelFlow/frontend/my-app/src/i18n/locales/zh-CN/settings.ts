@@ -46,6 +46,7 @@ export default {
       aliyunBailian: '阿里云百炼',
       ollama: 'Ollama',
       custom: '自定义 API',
+      chromeDebug: 'Chrome 调试 WebUI',
     },
     systemStatusSources: {
       comfyui: {

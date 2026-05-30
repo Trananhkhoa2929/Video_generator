@@ -314,10 +314,25 @@ async def get_llm_presets():
                 "name": "自定义 API",
                 "defaultApiUrl": "http://127.0.0.1/v1",
                 "models": [
-                    {"id": "custom-model", "name": "自定义模型", "description": "兼容 OpenAI 格式的自定义 API"},
+                    {"id": "custom-model", "name": "自定义模型", "description": "兼容 OpenAI 格式 of Custom API"},
                 ],
                 "apiKeyPlaceholder": "...",
                 "apiKeyHelp": "支持任何兼容 OpenAI API 格式的服务",
+            },
+            {
+                "id": "chrome_debug",
+                "name": "Chrome Debug WebUI",
+                "defaultApiUrl": "http://127.0.0.1:9222",
+                "models": [
+                    {"id": "auto", "name": "Auto Detect Chat Tab", "description": "自动检测当前 Chrome 打开的聊天标签页"},
+                    {"id": "chatgpt", "name": "ChatGPT", "description": "chatgpt.com"},
+                    {"id": "claude", "name": "Claude", "description": "claude.ai"},
+                    {"id": "gemini", "name": "Gemini", "description": "gemini.google.com"},
+                    {"id": "poe", "name": "Poe", "description": "poe.com"},
+                    {"id": "deepseek", "name": "DeepSeek Chat", "description": "chat.deepseek.com"},
+                ],
+                "apiKeyPlaceholder": "无需 API Key",
+                "apiKeyHelp": "使用 Chrome Debug 不需要 API Key，请确保 Chrome 开启了 --remote-debugging-port=9222 调试端口",
             },
         ]
     }

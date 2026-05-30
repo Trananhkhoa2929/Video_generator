@@ -643,7 +643,7 @@ class NovelService:
         """
         # 检查 LLM 配置
         llm_service = self.get_llm_service()
-        if not llm_service.api_key and llm_service.provider != "ollama":
+        if not llm_service.api_key and llm_service.provider not in ("ollama", "custom", "chrome_debug"):
             return {
                 "success": False,
                 "data": {

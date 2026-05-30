@@ -105,11 +105,11 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       // 检查 LLM API
-      const llmRes = await fetch(`${API_BASE}/health/llm/`);
+      const llmRes = await fetch(`${API_BASE}/health/llm`);
       const llm = llmRes.ok;
       
       // 检查 ComfyUI
-      const comfyRes = await fetch(`${API_BASE}/health/comfyui/`);
+      const comfyRes = await fetch(`${API_BASE}/health/comfyui`);
       const comfyui = comfyRes.ok;
       
       set({ isLoading: false });

@@ -320,11 +320,12 @@ async def generate_appearance(
 @router.post("/{character_id}/generate-portrait", response_model=dict)
 async def generate_character_portrait(
     character_id: str,
+    provider: str = Query("comfyui", description="Image provider: comfyui or webui"),
     db: Session = Depends(get_db)
 ):
     """生成角色人设图任务"""
     character_service = CharacterService(db)
-    return character_service.create_character_portrait_task(character_id)
+    return character_service.create_character_portrait_task(character_id, provider=provider)
 
 
 @router.post("/{character_id}/upload-image", response_model=dict)

@@ -1,10 +1,10 @@
 """JSON 解析工具 - 统一解析 LLM 返回的 JSON 内容"""
 import json
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
-def parse_llm_json(content: str) -> Dict[str, Any]:
+def parse_llm_json(content: str) -> Any:
     """
     统一解析 LLM 返回的 JSON 内容
     
@@ -46,17 +46,18 @@ def parse_llm_json(content: str) -> Dict[str, Any]:
         if match:
             text = match.group(1).strip()
     
+    text = re.sub(r'^\s*(json|JSON)\s*[:：]?\s*', '', text).strip()
+    
     # 3. 尝试直接解析
-    if text.startswith("{") and text.endswith("}"):
+    if (text.startswith("{") and text.endswith("}")) or (text.startswith("[") and text.endswith("]")):
         try:
             return json.loads(text)
         except json.JSONDecodeError:
             pass
     
-    # 4. 提取第一个 JSON 对象
-    match = re.search(r'\{[\s\S]*\}', text)
-    if match:
-        json_str = match.group()
+    # 4. 提取第一个 JSON 值
+    json_str = _extract_first_json_value(text)
+    if json_str:
         try:
             return json.loads(json_str)
         except json.JSONDecodeError:
@@ -66,7 +67,7 @@ def parse_llm_json(content: str) -> Dict[str, Any]:
     return json.loads(text)
 
 
-def safe_parse_llm_json(content: str, default: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def safe_parse_llm_json(content: str, default: Optional[Any] = None) -> Any:
     """
     安全解析 LLM JSON，失败时返回默认值而非抛出异常
     
@@ -85,6 +86,49 @@ def safe_parse_llm_json(content: str, default: Optional[Dict[str, Any]] = None) 
     except (json.JSONDecodeError, ValueError, TypeError) as e:
         print(f"[JSON Parser] Parse failed: {e}")
         return default
+
+
+def _extract_first_json_value(text: str) -> Optional[str]:
+    start = None
+    opener = ""
+    closer = ""
+    depth = 0
+    in_string = False
+    escape = False
+
+    for index, char in enumerate(text):
+        if start is None:
+            if char == "{":
+                start = index
+                opener = "{"
+                closer = "}"
+                depth = 1
+            elif char == "[":
+                start = index
+                opener = "["
+                closer = "]"
+                depth = 1
+            continue
+
+        if escape:
+            escape = False
+            continue
+        if char == "\\" and in_string:
+            escape = True
+            continue
+        if char == '"':
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+        if char == opener:
+            depth += 1
+        elif char == closer:
+            depth -= 1
+            if depth == 0:
+                return text[start:index + 1]
+
+    return None
 
 
 def extract_json_objects(content: str) -> list:

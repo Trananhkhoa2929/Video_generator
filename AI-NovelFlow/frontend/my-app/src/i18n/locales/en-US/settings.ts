@@ -46,6 +46,7 @@ export default {
       aliyunBailian: 'Alibaba Cloud Bailian',
       ollama: 'Ollama',
       custom: 'Custom API',
+      chromeDebug: 'Chrome Debug WebUI',
     },
     systemStatusSources: {
       comfyui: {
@@ -379,7 +380,6 @@ export default {
       'Europe/London': 'London Time (Europe/London)',
       'Europe/Paris': 'Paris Time (Europe/Paris)',
       'Australia/Sydney': 'Sydney Time (Australia/Sydney)',
-      'UTC': 'UTC (Coordinated Universal Time)',
     },
   },
 };

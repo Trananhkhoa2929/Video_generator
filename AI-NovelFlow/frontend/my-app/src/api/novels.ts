@@ -9,19 +9,19 @@ export const novelApi = {
   fetchList: () => api.get<Novel[]>('/novels/'),
 
   /** 获取单个小说 */
-  fetch: (id: string) => api.get<Novel>(`/novels/${id}/`),
+  fetch: (id: string) => api.get<Novel>(`/novels/${id}`),
 
   /** 创建小说 */
   create: (data: Partial<Novel>) => api.post<Novel>('/novels/', data),
 
   /** 更新小说 */
-  update: (id: string, data: Partial<Novel>) => api.put<Novel>(`/novels/${id}/`, data),
+  update: (id: string, data: Partial<Novel>) => api.put<Novel>(`/novels/${id}`, data),
 
   /** 删除小说 */
-  delete: (id: string) => api.delete(`/novels/${id}/`),
+  delete: (id: string) => api.delete(`/novels/${id}`),
 
   /** 获取章节列表 */
-  fetchChapters: (novelId: string) => api.get<Chapter[]>(`/novels/${novelId}/chapters/`),
+  fetchChapters: (novelId: string) => api.get<Chapter[]>(`/novels/${novelId}/chapters`),
 
   /** 导入小说 */
   import: async (file: File) => {

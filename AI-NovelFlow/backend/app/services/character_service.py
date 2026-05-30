@@ -17,6 +17,7 @@ from app.repositories import TaskRepository, WorkflowRepository, CharacterReposi
 from app.services.comfyui import ComfyUIService
 from app.services.file_storage import file_storage
 from app.services.prompt_builder import build_character_prompt, get_style
+from app.services.webui_image_service import WebUIImageService
 
 
 class CharacterService:
@@ -250,7 +251,8 @@ class CharacterService:
     def create_character_portrait_task(
         self, 
         character_id: str,
-        db: Session = None
+        db: Session = None,
+        provider: str = "comfyui"
     ) -> Dict[str, Any]:
         """
         创建角色人设图生成任务
@@ -266,6 +268,9 @@ class CharacterService:
         character_repo = CharacterRepository(db)
         task_repo = TaskRepository(db)
         workflow_repo = WorkflowRepository(db)
+        image_provider = (provider or "comfyui").lower()
+        if image_provider not in ("comfyui", "webui"):
+            return {"success": False, "message": f"Unsupported image provider: {provider}"}
         
         # 获取角色
         character = character_repo.get_by_id(character_id)
@@ -292,10 +297,11 @@ class CharacterService:
             }
         
         # 获取并验证工作流
-        workflow = workflow_repo.get_active_by_type("character")
-        is_valid, error_msg = self._validate_workflow_node_mapping(workflow, "character")
-        if not is_valid:
-            return {"success": False, "message": error_msg}
+        if image_provider == "comfyui":
+            workflow = workflow_repo.get_active_by_type("character")
+            is_valid, error_msg = self._validate_workflow_node_mapping(workflow, "character")
+            if not is_valid:
+                return {"success": False, "message": error_msg}
         
         # 创建任务
         task = Task(
@@ -320,7 +326,8 @@ class CharacterService:
                 character_id,
                 character.name,
                 character.appearance,
-                character.description
+                character.description,
+                image_provider
             )
         )
         
@@ -339,7 +346,8 @@ class CharacterService:
         character_id: str,
         name: str,
         appearance: str,
-        description: str
+        description: str,
+        image_provider: str = "comfyui"
     ):
         """
         后台任务：生成角色人设图
@@ -406,6 +414,51 @@ class CharacterService:
             # 保存提示词
             task.prompt_text = prompt
             db.commit()
+
+            if image_provider == "webui":
+                task.workflow_name = "Web UI Image Reference"
+                task.workflow_json = json.dumps(
+                    {"provider": "webui", "assetType": "character", "prompt": prompt},
+                    ensure_ascii=False,
+                    indent=2
+                )
+                task.current_step = "Sending prompt to Web UI image generator..."
+                task.progress = 30
+                db.commit()
+
+                result = await WebUIImageService().generate_asset_image(
+                    prompt=prompt,
+                    asset_type="character",
+                    asset_name=name,
+                    novel_id=task.novel_id or "default",
+                    asset_context={
+                        "description": description,
+                        "appearance": appearance,
+                    }
+                )
+
+                if result.get("success"):
+                    task.result_url = result.get("image_url")
+                    task.status = "completed"
+                    task.progress = 100
+                    task.current_step = "Generated through Web UI and saved"
+                    task.completed_at = datetime.utcnow()
+
+                    character = character_repo.get_by_id(character_id)
+                    if character:
+                        character.image_url = task.result_url
+                        character.generating_status = "completed"
+                else:
+                    task.status = "failed"
+                    task.error_message = result.get("message", "Web UI generation failed")
+                    task.current_step = "Web UI generation failed"
+
+                    character = character_repo.get_by_id(character_id)
+                    if character:
+                        character.generating_status = "failed"
+
+                db.commit()
+                return
 
             # 获取工作流JSON字符串
             workflow_json_str = workflow.workflow_json if workflow else None

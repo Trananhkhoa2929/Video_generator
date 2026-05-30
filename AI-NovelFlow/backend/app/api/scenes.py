@@ -368,11 +368,12 @@ async def parse_scenes(
 @router.post("/{scene_id}/generate-image", response_model=dict)
 async def generate_scene_image(
     scene_id: str,
+    provider: str = Query("comfyui", description="Image provider: comfyui or webui"),
     db: Session = Depends(get_db)
 ):
     """生成场景图任务"""
     scene_service = SceneService(db)
-    return scene_service.create_scene_image_task(scene_id)
+    return scene_service.create_scene_image_task(scene_id, provider=provider)
 
 
 @router.post("/{scene_id}/upload-image", response_model=dict)

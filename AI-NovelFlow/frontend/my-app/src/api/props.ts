@@ -40,8 +40,8 @@ export const propApi = {
     api.post<Prop>(`/props/${propId}/generate-appearance`),
 
   /** 生成道具图片任务 */
-  generateImage: (propId: string) =>
-    api.post(`/props/${propId}/generate-image`),
+  generateImage: (propId: string, provider: 'comfyui' | 'webui' = 'comfyui') =>
+    api.post(`/props/${propId}/generate-image?provider=${provider}`),
 
   /** 上传道具图片 */
   uploadImage: async (propId: string, file: File) => {

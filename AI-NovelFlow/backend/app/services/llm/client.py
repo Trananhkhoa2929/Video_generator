@@ -11,6 +11,7 @@ from .providers.openai import OpenAICompatibleProvider
 from .providers.anthropic import AnthropicProvider
 from .providers.gemini import GeminiProvider
 from .providers.ollama import OllamaProvider
+from .providers.chrome_debug import ChromeDebugProvider
 
 
 class LLMClient:
@@ -27,6 +28,7 @@ class LLMClient:
         "anthropic": AnthropicProvider,
         "gemini": GeminiProvider,
         "ollama": OllamaProvider,
+        "chrome_debug": ChromeDebugProvider,
         "azure": OpenAICompatibleProvider,  # Azure 使用 OpenAI 兼容格式
         "aliyun-bailian": OpenAICompatibleProvider,  # 阿里云百炼使用 OpenAI 兼容格式
         "custom": OpenAICompatibleProvider,  # 自定义 API 使用 OpenAI 兼容格式

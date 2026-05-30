@@ -14,6 +14,8 @@ import { ImagePreviewModal, PropCard } from './components';
 import { ALLOWED_IMAGE_TYPES, POLL_CONFIG, ASPECT_RATIO_CLASSES } from './constants';
 import type { PreviewImageState, DeleteAllConfirmDialog, PropPrompt } from './types';
 
+type ImageProvider = 'comfyui' | 'webui';
+
 export default function Props() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,6 +34,7 @@ export default function Props() {
   const [deleteAllConfirmDialog, setDeleteAllConfirmDialog] = useState<DeleteAllConfirmDialog>({ isOpen: false });
   const [previewImage, setPreviewImage] = useState<PreviewImageState>({ isOpen: false, url: null, name: '', propId: null });
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [imageProvider, setImageProvider] = useState<ImageProvider>('comfyui');
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentUploadPropId, setCurrentUploadPropId] = useState<string | null>(null);
@@ -248,7 +251,7 @@ export default function Props() {
     setGeneratingId(prop.id);
     try {
       // 使用默认工作流生成道具图片
-      const data = await propApi.generateImage(prop.id);
+      const data = await propApi.generateImage(prop.id, imageProvider);
       if (data.success) {
         setProps(prev => prev.map(p =>
           p.id === prop.id ? { ...p, generatingStatus: 'running' } : p
@@ -333,7 +336,7 @@ export default function Props() {
 
     for (const prop of propsToGenerate) {
       try {
-        const data = await propApi.generateImage(prop.id);
+        const data = await propApi.generateImage(prop.id, imageProvider);
         if (data.success) {
           successCount++;
           setProps(prev => prev.map(p =>
@@ -473,6 +476,23 @@ export default function Props() {
           <p className="mt-1 text-sm text-gray-500">{t('props.subtitle')}</p>
         </div>
         <div className="flex gap-3">
+          <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white p-1 text-sm">
+            <span className="px-2 text-gray-500">Image source</span>
+            {(['comfyui', 'webui'] as ImageProvider[]).map((provider) => (
+              <button
+                key={provider}
+                type="button"
+                onClick={() => setImageProvider(provider)}
+                className={`rounded px-3 py-1.5 font-medium ${
+                  imageProvider === provider
+                    ? 'bg-amber-100 text-amber-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {provider === 'comfyui' ? 'ComfyUI' : 'Web UI'}
+              </button>
+            ))}
+          </div>
           {filteredProps.length > 0 && (
             <button
               onClick={generateAllPropImages}

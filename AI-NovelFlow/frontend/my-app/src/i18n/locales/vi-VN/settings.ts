@@ -45,6 +45,7 @@ export default {
       aliyunBailian: 'Alibaba Cloud Bailian',
       ollama: 'Ollama',
       custom: 'API Tùy chỉnh',
+      chromeDebug: 'Chrome Debug WebUI',
     },
     systemStatusSources: {
       comfyui: {

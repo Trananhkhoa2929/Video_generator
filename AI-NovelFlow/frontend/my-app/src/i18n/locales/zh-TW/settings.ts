@@ -65,6 +65,7 @@ export default {
       aliyunBailian: '阿里雲百煉',
       ollama: 'Ollama',
       custom: '自訂 API',
+      chromeDebug: 'Chrome 偵錯 WebUI',
     },
     modelNames: {
       'qwen36MaxPreview': '通義千問 3.6 Max Preview',

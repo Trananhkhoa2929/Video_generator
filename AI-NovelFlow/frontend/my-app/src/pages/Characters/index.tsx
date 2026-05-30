@@ -14,6 +14,8 @@ import { ImagePreviewModal, CharacterCard } from './components';
 import { ASPECT_RATIO_CLASSES, ALLOWED_IMAGE_TYPES, ALLOWED_AUDIO_TYPES, MAX_AUDIO_SIZE, POLL_CONFIG } from './constants';
 import type { CharacterPrompt, PreviewImageState, DeleteAllConfirmDialog } from './types';
 
+type ImageProvider = 'comfyui' | 'webui';
+
 export default function Characters() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -35,6 +37,7 @@ export default function Characters() {
   const [deleteAllConfirmDialog, setDeleteAllConfirmDialog] = useState<DeleteAllConfirmDialog>({ isOpen: false });
   const [previewImage, setPreviewImage] = useState<PreviewImageState>({ isOpen: false, url: null, name: '', characterId: null });
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [imageProvider, setImageProvider] = useState<ImageProvider>('comfyui');
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [generatingVoiceId, setGeneratingVoiceId] = useState<string | null>(null);
   const [uploadingAudioId, setUploadingAudioId] = useState<string | null>(null);
@@ -232,7 +235,7 @@ export default function Characters() {
     
     setGeneratingId(character.id);
     try {
-      const data = await characterApi.generatePortrait(character.id);
+      const data = await characterApi.generatePortrait(character.id, imageProvider);
       if (data.success) {
         setCharacters(prev => prev.map(c => 
           c.id === character.id ? { ...c, generatingStatus: 'running' } : c
@@ -408,7 +411,7 @@ export default function Characters() {
     
     for (const character of charactersToGenerate) {
       try {
-        const data = await characterApi.generatePortrait(character.id);
+        const data = await characterApi.generatePortrait(character.id, imageProvider);
         if (data.success) {
           successCount++;
           setCharacters(prev => prev.map(c =>
@@ -569,6 +572,23 @@ export default function Characters() {
           <p className="mt-1 text-sm text-gray-500">{t('characters.subtitle')}</p>
         </div>
         <div className="flex gap-3">
+          <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white p-1 text-sm">
+            <span className="px-2 text-gray-500">Image source</span>
+            {(['comfyui', 'webui'] as ImageProvider[]).map((provider) => (
+              <button
+                key={provider}
+                type="button"
+                onClick={() => setImageProvider(provider)}
+                className={`rounded px-3 py-1.5 font-medium ${
+                  imageProvider === provider
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {provider === 'comfyui' ? 'ComfyUI' : 'Web UI'}
+              </button>
+            ))}
+          </div>
           {filteredCharacters.length > 0 && (
             <button
               onClick={generateAllPortraits}

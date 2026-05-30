@@ -133,7 +133,7 @@ async def check_llm():
     }
     
     # Ollama 和自定义 API 通常不需要 API Key
-    if not llm_service.api_key and llm_service.provider not in ("ollama", "custom"):
+    if not llm_service.api_key and llm_service.provider not in ("ollama", "custom", "chrome_debug"):
         raise HTTPException(
             status_code=503, 
             detail={
@@ -142,12 +142,67 @@ async def check_llm():
             }
         )
     
+    if llm_service.provider == "chrome_debug":
+        debug_url = llm_service.api_url or "http://127.0.0.1:9222"
+        if not debug_url.startswith("http"):
+            debug_url = f"http://{debug_url}"
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{debug_url}/json")
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=503,
+                        detail={
+                            "message": "Chrome Debug endpoint is not available",
+                            "error": response.text,
+                            "debug": debug_info,
+                        },
+                    )
+                targets = response.json()
+                pages = [t for t in targets if t.get("type") == "page"]
+                llm_pages = [
+                    p for p in pages
+                    if any(
+                        host in (p.get("url") or "").lower()
+                        for host in (
+                            "gemini.google.com",
+                            "chatgpt.com",
+                            "chat.openai.com",
+                            "claude.ai",
+                            "poe.com",
+                            "chat.deepseek.com",
+                        )
+                    )
+                ]
+                if not llm_pages:
+                    raise HTTPException(
+                        status_code=503,
+                        detail={
+                            "message": "Chrome Debug is running, but no supported LLM web tab was found",
+                            "debug": debug_info,
+                        },
+                    )
+            return {
+                "status": "ok",
+                "message": "Chrome Debug is reachable. Generation test skipped.",
+                "provider": llm_service.provider,
+                "model": llm_service.model,
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "message": f"Chrome Debug connection failed: {str(e)}",
+                    "debug": debug_info,
+                },
+            )
+
     try:
-        result = await llm_service.chat_completion(
-            system_prompt="You are a helpful assistant.",
-            user_content="Hi",
-            max_tokens=10
-        )
+        # Health checks must not send generation prompts. They only validate
+        # that the provider configuration is present.
+        result = {"success": True}
         
         if result["success"]:
             return {

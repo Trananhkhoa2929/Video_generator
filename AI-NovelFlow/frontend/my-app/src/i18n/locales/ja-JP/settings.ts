@@ -45,6 +45,7 @@ export default {
       aliyunBailian: 'Alibaba Cloud 百錬',
       ollama: 'Ollama',
       custom: 'カスタム API',
+      chromeDebug: 'Chrome デバッグ WebUI',
     },
     // Model names
     modelNames: {

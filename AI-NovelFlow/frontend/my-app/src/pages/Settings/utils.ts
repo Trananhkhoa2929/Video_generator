@@ -13,6 +13,7 @@ export const getProviderDisplayName = (providerId: string, t: any): string => {
     'aliyun-bailian': 'systemSettings.providers.aliyunBailian',
     'ollama': 'systemSettings.providers.ollama',
     'custom': 'systemSettings.providers.custom',
+    'chrome_debug': 'systemSettings.providers.chromeDebug',
   };
   const key = providerKeyMap[providerId];
   if (key) {

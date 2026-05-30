@@ -45,26 +45,77 @@ export interface GenerateAllAudioData {
   total_warnings: number;
 }
 
+export interface VisualAssetExtractStorage {
+  created?: { characters?: string[]; scenes?: string[]; props?: string[] };
+  updated?: { characters?: string[]; scenes?: string[]; props?: string[] };
+}
+
+export interface VisualAssetExtractData {
+  storage?: VisualAssetExtractStorage;
+  segmentCount?: number;
+  segmentErrors?: { segment_id: string; error: string }[];
+}
+
+export interface RawSegment {
+  id: string;
+  text_vi: string;
+}
+
+export interface EnrichedSegment extends RawSegment {
+  chapter_id?: string;
+  segment_index?: number;
+  word_count?: number;
+  narrative_mode?: string;
+  focus_character?: string;
+  key_visual?: string;
+  suggested_beat_count?: number;
+  suggested_panel_count?: number;
+  location?: {
+    name?: string;
+    type?: string;
+    time_of_day?: string;
+    weather?: string;
+    atmosphere?: string;
+  };
+  tags?: string[];
+}
+
+export interface SegmentData {
+  raw?: RawSegment[];
+  enriched?: EnrichedSegment[];
+  updated_at?: string | null;
+  source?: string;
+}
+
+export interface StoryboardPanelGenerateData {
+  panels?: Record<string, unknown>[];
+  normalizedPanels?: Record<string, unknown>[];
+  panelCount?: number;
+  segmentCount?: number;
+  warnings?: string[];
+  shots?: unknown[];
+}
+
 export const chapterApi = {
   /** 获取章节信息 */
   fetch: (novelId: string, chapterId: string) =>
-    api.get<Chapter>(`/novels/${novelId}/chapters/${chapterId}/`),
+    api.get<Chapter>(`/novels/${novelId}/chapters/${chapterId}`),
 
   /** 更新章节 */
   update: (novelId: string, chapterId: string, data: { title: string; content: string }) =>
-    api.put<Chapter>(`/novels/${novelId}/chapters/${chapterId}/`, data),
+    api.put<Chapter>(`/novels/${novelId}/chapters/${chapterId}`, data),
 
   /** 删除章节 */
   delete: (novelId: string, chapterId: string) =>
-    api.delete(`/novels/${novelId}/chapters/${chapterId}/`),
+    api.delete(`/novels/${novelId}/chapters/${chapterId}`),
 
   /** 获取小说所有章节 */
   fetchByNovel: (novelId: string) =>
-    api.get<Chapter[]>(`/novels/${novelId}/chapters/`),
+    api.get<Chapter[]>(`/novels/${novelId}/chapters`),
 
   /** 创建章节 */
   create: (novelId: string, data: Partial<Chapter>) =>
-    api.post<Chapter>(`/novels/${novelId}/chapters/`, data),
+    api.post<Chapter>(`/novels/${novelId}/chapters`, data),
 
   /** 解析章节角色 */
   parseCharacters: (novelId: string, chapterId: string, isIncremental = true) =>
@@ -74,9 +125,49 @@ export const chapterApi = {
   parseScenes: (novelId: string, chapterId: string, isIncremental = true) =>
     api.post<{ statistics: ParseResult }>(`/novels/${novelId}/chapters/${chapterId}/parse-scenes/`, { is_incremental: isIncremental }),
 
+  /** Extract richer production assets from chapter text */
+  extractVisualAssets: (novelId: string, chapterId: string) =>
+    api.post<VisualAssetExtractData>(`/novels/${novelId}/chapters/${chapterId}/storyboard/extract-assets`, {
+      store: true,
+      update_existing: true,
+      max_characters: 16,
+      max_scenes: 20,
+      max_props: 40,
+      ensure_segments: true,
+      enrich_segments: true,
+    }),
+
+  /** Fetch stored visual/cinematic segments */
+  fetchSegments: (novelId: string, chapterId: string) =>
+    api.get<SegmentData>(`/novels/${novelId}/chapters/${chapterId}/segments`),
+
+  /** Split chapter text into visual/cinematic segments */
+  splitSegments: (novelId: string, chapterId: string, overwrite = true) =>
+    api.post<SegmentData>(`/novels/${novelId}/chapters/${chapterId}/segments/split`, { overwrite }),
+
+  /** Enrich stored segments with beat/panel metadata */
+  enrichSegments: (novelId: string, chapterId: string, overwrite = true) =>
+    api.post<SegmentData>(`/novels/${novelId}/chapters/${chapterId}/segments/enrich`, { overwrite }),
+
+  /** Generate storyboard panels from enriched segments */
+  generateStoryboardPanels: (novelId: string, chapterId: string, createShots = false) =>
+    api.post<StoryboardPanelGenerateData>(`/novels/${novelId}/chapters/${chapterId}/storyboard/generate-panels`, {
+      store: true,
+      create_shots: createShots,
+      overwrite_shots: true,
+      max_segments: 80,
+    }),
+
+  /** Convert already stored storyboard panels into NovelFlow shots */
+  convertStoryboardPanelsToShots: (novelId: string, chapterId: string, overwrite = true) =>
+    api.post<StoryboardPanelGenerateData>(`/novels/${novelId}/chapters/${chapterId}/storyboard/convert-panels-to-shots`, {
+      store: true,
+      overwrite,
+    }),
+
   /** 拆分章节 */
   split: (novelId: string, chapterId: string) =>
-    api.post<Chapter[]>(`/novels/${novelId}/chapters/${chapterId}/split/`),
+    api.post<Chapter[]>(`/novels/${novelId}/chapters/${chapterId}/split`),
 
   /** 清理章节资源 */
   clearResources: (novelId: string, chapterId: string) =>
@@ -84,7 +175,7 @@ export const chapterApi = {
 
   /** 下载章节素材 */
   downloadMaterials: (novelId: string, chapterId: string) =>
-    `/api/novels/${novelId}/chapters/${chapterId}/download-materials/`,
+    `/api/novels/${novelId}/chapters/${chapterId}/download-materials`,
 
   /** 合并章节视频 */
   mergeVideos: (novelId: string, chapterId: string) =>

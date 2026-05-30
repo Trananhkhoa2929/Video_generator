@@ -1,5 +1,5 @@
 // 支持的 LLM 厂商
-export type LLMProvider = 'deepseek' | 'openai' | 'gemini' | 'anthropic' | 'azure' | 'aliyun-bailian' | 'ollama' | 'custom';
+export type LLMProvider = 'deepseek' | 'openai' | 'gemini' | 'anthropic' | 'azure' | 'aliyun-bailian' | 'ollama' | 'custom' | 'chrome_debug';
 export type SystemStatusSource = 'comfyui' | 'windows_gpu_monitor';
 
 // LLM 模型配置
@@ -104,6 +104,44 @@ export interface ParsedData {
   scenes?: string[];      // 章节场景名称列表
   props?: string[];       // 章节道具名称列表
   shots?: ShotData[];     // 分镜数据列表
+  segments?: {
+    raw?: StorySegment[];
+    enriched?: EnrichedStorySegment[];
+    updated_at?: string | null;
+    source?: string;
+  };
+  visual_asset_extraction?: Record<string, unknown>;
+  storyboard?: {
+    panels?: Record<string, unknown>[];
+    normalized_panels?: Record<string, unknown>[];
+    converted_shot_count?: number;
+    panel_source_segment_count?: number;
+    panel_generation_warnings?: string[];
+  };
+}
+
+export interface StorySegment {
+  id: string;
+  text_vi: string;
+}
+
+export interface EnrichedStorySegment extends StorySegment {
+  chapter_id?: string;
+  segment_index?: number;
+  word_count?: number;
+  narrative_mode?: string;
+  focus_character?: string;
+  key_visual?: string;
+  suggested_beat_count?: number;
+  suggested_panel_count?: number;
+  location?: {
+    name?: string;
+    type?: string;
+    time_of_day?: string;
+    weather?: string;
+    atmosphere?: string;
+  };
+  tags?: string[];
 }
 
 export interface ShotData {

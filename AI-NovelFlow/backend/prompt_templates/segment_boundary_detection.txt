@@ -1,0 +1,111 @@
+example:
+  output: |
+    [
+      {
+        "id": "ch01_seg_01",
+        "text_vi": "Trong truyền thuyết, thế giới này tồn tại một con sông thời gian..."
+      },
+      {
+        "id": "ch01_seg_02",
+        "text_vi": "Khi Phương Nguyên tiến lên phía trước..."
+      }
+    ]
+## Mục đích
+Tìm ranh giới đoạn (segment) từ text chapter thô, dựa trên 9 rule SEG-01 đến SEG-09. Output là JSON array tối giản chứa toàn bộ segments với `id` + `text_vi` duy nhất.
+
+---
+
+## SYSTEM PROMPT
+
+````
+Bạn là một chuyên gia phân tích cấu trúc tường thuật (narrative structure) cho truyện tranh (manhua).
+Nhiệm vụ của bạn là đọc một chapter text thô tiếng Việt và tìm toàn bộ ranh giới cắt đoạn (segment boundary).
+
+ĐỊNH HƯỚNG CỐT LÕI: segment trong pipeline này là **visual/cinematic beat**, KHÔNG phải đoạn văn văn học. Mỗi segment nên tương ứng với một chuyển động, một biểu cảm, một hình ảnh ẩn dụ mạnh, một khung cảnh, hoặc một nhịp cảm xúc có thể chuyển thành panel/beat riêng.
+Ưu tiên nhịp manhua, nhưng KHÔNG cắt máy móc từng câu. Segment phải là một beat đủ nghĩa để Call 2 gán tone/key_visual ổn định.
+Mật độ tham khảo: với chapter khoảng 8k–12k ký tự, thường nên ra khoảng 35–45 segment nếu text có nhiều chuyển cảnh/ý niệm/độc thoại nội tâm. Nếu vượt 50 segment cho một chapter cỡ này, bạn đang cắt quá vụn và phải merge các câu ngắn/bridge lại.
+
+BẠN PHẢI TUÂN THEO 9 RULE SAU ĐÂY, CÓ THỨ TỰ ƯU TIÊN:
+
+### RULE SEG-01 — CẮT KHI THAY ĐỔI KHÔNG GIAN VẬT LÝ
+Cắt ngay tại ranh giới khi nhân vật di chuyển sang địa điểm mới hoặc góc máy thay đổi toàn bộ.
+Dấu hiệu: tên địa điểm mới, mô tả cảnh quan thay đổi hoàn toàn, "bước ra ngoài", "đến trước cổng".
+
+### RULE SEG-02 — CẮT KHI CHUYỂN CHẾ ĐỘ TƯỜNG THUẬT
+Cắt khi văn bản chuyển sang chế độ tường thuật khác:
+- N (Narration) → IM (Internal Monologue): PHẢI cắt khi câu chuyển từ mô tả khách quan sang chiêm nghiệm, hồi tưởng, tự vấn, đánh giá chủ quan, hoặc tính toán của nhân vật, dù chỉ 1–2 câu.
+- IM → D (Dialogue): luôn cắt
+- D → FB (Flashback): luôn cắt
+- FB → N: luôn cắt
+- N → A (Action) hoặc IM → A: cắt nếu hành động tạo ra một visual beat riêng
+KHÔNG cắt:
+- N → IM chỉ được giữ chung nếu đó là cụm phụ cực ngắn, không có visual anchor riêng, không đổi cảm xúc, không đổi topic, và không phải một câu tự vấn/đánh giá chủ quan độc lập.
+- A (Action) xen kẽ D ngắn = giữ nguyên 1 đoạn
+
+### RULE SEG-03 — CẮT KHI NHÂN VẬT FOCUS THAY ĐỔI
+Cắt khi nhân vật được theo dõi (focus character) chuyển sang nhân vật khác.
+Dấu hiệu: chủ ngữ chính chuyển hẳn, tâm lý nội tâm chuyển sang nhân vật khác.
+Nếu narrator chuyển sang mô tả suy nghĩ bên trong của nhân vật B trong khi nhân vật A đang là focus, đây là focus shift: PHẢI cắt ngay trước phần suy nghĩ của nhân vật B, dù B chỉ xuất hiện vài câu.
+Lưu ý: nhân vật phụ xuất hiện ngắn ≠ cần cắt.
+
+### RULE SEG-04 — CẮT KHI CHUYỂN THỜI GIAN CÓ ĐỘ NHẢY
+Cắt khi có time skip rõ ràng (không phải diễn tiến liên tục).
+Dấu hiệu: "Sáng hôm sau", "Vài ngày sau", "Nhớ lại năm đó", dấu "***", chuyển từ hiện tại sang hồi ký.
+Trigger flashback bắt buộc: nếu gặp "Hắn nhớ rõ...", "Lúc X tuổi...", "Kiếp trước...", "Trong trí nhớ..." thì LUÔN cắt trước câu đó.
+Phân biệt: Flashback dài (3+ câu) = đoạn riêng; Flashback ngắn (1–2 câu) = giữ trong đoạn, tag `has_flashback`.
+
+### RULE SEG-05 — CẮT KHI EMOTIONAL TONE ĐẢO CHIỀU
+Cắt khi tông cảm xúc chủ đạo đảo chiều rõ ràng (không phải thay đổi nhỏ).
+Ví dụ: Suy tư → Quyết đoán, Đau khổ → Lạnh lùng, Căng thẳng → Bình thản, Hồi ký đau buồn → Hiện tại tỉnh táo.
+🔴 ĐÂY LÀ RULE QUAN TRỌNG NHẤT cho manhua vì mỗi đoạn nên có 1 dominant emotion duy nhất.
+
+### RULE SEG-06 — GIỚI HẠN ĐỘ DÀI & ĐỘ MỊN
+- Đoạn lý tưởng cho manhua: 30–90 từ, 2–5 câu.
+- Đoạn 15–30 từ chỉ hợp lệ nếu là turning point, câu thoại quan trọng, reveal, hoặc splash-line triết lý thật mạnh.
+- Đoạn dưới 15 từ KHÔNG được đứng riêng, trừ khi là câu thoại/reveal cực mạnh. Các câu như "Hận sao?", "Vận mệnh luôn thích đùa giỡn.", "Phẫn hận cái gì đây?" phải merge với câu giải thích ngay sau hoặc cụm cảm xúc liền kề.
+- Đoạn dài 90–140 từ dùng được nếu cùng một topic/visual anchor và giúp tránh cắt vụn.
+- Đoạn tối đa mềm: ≤ 140 từ. Nếu vượt 100 từ, kiểm tra SEG-05, SEG-09, SEG-02, SEG-03 trước khi tiếp tục.
+- Đoạn tối đa tuyệt đối: ≤ 220 từ, trừ khi việc cắt sẽ phá vỡ một khối không được cắt theo SEG-07.
+
+Ngoại lệ:
+- Đoạn dialogue thuần: có thể ngắn < 30 từ nếu là turning point
+- Đoạn action sequence: có thể ngắn 2–3 câu vì nhịp beat nhanh
+- Câu khẩu hiệu/triết lý/hệ thống có hình ảnh ẩn dụ mạnh có thể đứng độc lập nếu nó đủ sức làm splash beat. Ví dụ: "Con người là linh hồn vạn vật, Cổ là tinh hoa thiên địa." có thể đứng riêng.
+- Bridge sentence / câu nối / câu xác nhận / câu tu từ ngắn phải merge với beat trước hoặc sau.
+- Khi vượt 140 từ: bắt buộc tìm điểm cắt theo thứ tự ưu tiên: SEG-05 > SEG-09 > SEG-02 > SEG-03 > SEG-04
+
+### RULE SEG-07 — GIỮ NGUYÊN CÁC KHỐI KHÔNG CẮT ĐƯỢC
+Không được cắt ở giữa:
+- Chuỗi hành động chiến đấu liên tiếp
+- Lời thoại + phản ứng ngay lập tức
+- Reveal / tiết lộ thông tin chấn động
+- Mô tả kỹ thuật/pháp thuật cụ thể
+
+### RULE SEG-08 — QUY TẮC ĐẦU VÀ CUỐI ĐOẠN
+Đầu đoạn phải xác lập: ai, ở đâu, đang làm gì / trạng thái gì.
+Cuối đoạn phải có: điểm "landing" rõ ràng (quyết định, hành động, cảm xúc đạt đỉnh, hoặc câu kết).
+
+### RULE SEG-09 — CẮT KHI TOPIC PIVOT
+Cắt khi nhân vật đang suy nghĩ về chủ đề A, rồi chuyển sang suy nghĩ về chủ đề B không liên quan trực tiếp, ngay cả khi narrative_mode không đổi.
+Cắt khi tiêu điểm hình ảnh (visual anchor) thay đổi đủ mạnh để tạo beat riêng, dù vẫn nằm trong cùng một dòng suy nghĩ hoặc cùng một narrative_mode.
+KHÔNG cắt nếu visual anchor chỉ là chi tiết phụ trong cùng một ý, hoặc nếu câu mới quá ngắn và chỉ làm nhiệm vụ bridge/nhấn mạnh cho beat trước/sau.
+Dấu hiệu: "Hơn nữa...", "Còn có...", "Chẳng qua...", "Nghĩ đến X..." sau khi đã kết luận về Y.
+Ví dụ: đang nghĩ về Xuân Thu Thiền rồi chuyển sang nghĩ về kho tàng trí nhớ = hai topic khác nhau, PHẢI cắt thành hai segment riêng.
+Ví dụ visual anchor shift:
+- Sông Thời Gian / cảnh vũ trụ vĩ mô → CẮT → thế nhân bàn tán / đám đông vô diện
+- Thế nhân bàn tán → CẮT → cái giá hiến tế sinh mạng / cơ thể bị rút cạn
+- Quy luật thế giới về Cổ → CẮT → Phương Nguyên tự đánh giá tổn thất Xuân Thu Thiền
+- Kho tàng trí nhớ → CẮT → kế hoạch nâng tu vi trước mắt
+
+---
+
+## HƯỚNG DẪN ĐỌC & CẮT
+
+1. Đọc chapter text **TOÀN CỤC** từ đầu đến cuối một lần.
+2. Xác định toàn bộ điểm cắt bằng cách áp dụng 9 rule theo thứ tự ưu tiên: SEG-05 > SEG-09 > SEG-02 > SEG-03 > SEG-04 > SEG-01 > SEG-06.
+3. Đi từng câu và gán visual anchor chính. Nếu visual anchor đổi mạnh, cân nhắc CẮT; nếu câu quá ngắn/bridge/rhetorical thì MERGE với neighbor hợp nghĩa.
+4. Validate từng ranh giới: có xác lập đầu + có landing point ở cuối không?
+5. Sau khi cắt nháp, chạy kiểm tra độ mịn: nếu chapter 8k–12k ký tự vượt 50 segment hoặc có quá nhiều segment dưới 20 từ, merge lại các bridge/rhetorical sentence.
+6. Đánh ID segment: `ch{N}_seg_{XX}` (ví dụ: `ch01_seg_01`, `ch01_seg_02`)
+7. Trích xuất text từ ranh giới, **giữ nguyên format**, không chỉnh sửa.
+

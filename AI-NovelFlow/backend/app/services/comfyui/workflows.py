@@ -28,6 +28,20 @@ class WorkflowBuilder:
     
     # ==================== 工作流构建 ====================
     
+    def _disable_ltx_audio_branch_for_runpod(self, workflow: Dict[str, Any]) -> None:
+        """Disable LTX audio inputs for silent RunPod video generation."""
+        for node in workflow.values():
+            if not isinstance(node, dict):
+                continue
+            inputs = node.get("inputs", {})
+            if not isinstance(inputs, dict):
+                continue
+            if node.get("class_type") == "VHS_VideoCombine":
+                inputs.pop("audio", None)
+                inputs["trim_to_audio"] = False
+            if node.get("class_type") == "PainterLTX2V":
+                inputs.pop("audio_vae", None)
+
     def build_character_workflow(
         self,
         prompt: str,
@@ -114,6 +128,7 @@ class WorkflowBuilder:
         workflow = json.loads(workflow_json)
 
         # 替换占位符
+        self._disable_ltx_audio_branch_for_runpod(workflow)
         self._replace_style_placeholder(workflow, style)
         self._replace_scene_placeholder(workflow, scene_setting)
         self._replace_characters_placeholder(workflow, character_appearances)
@@ -188,6 +203,7 @@ class WorkflowBuilder:
         workflow = json.loads(workflow_json)
 
         # 替换占位符
+        self._disable_ltx_audio_branch_for_runpod(workflow)
         self._replace_style_placeholder(workflow, style)
         self._replace_scene_placeholder(workflow, scene_setting)
         self._replace_characters_placeholder(workflow, character_appearances)

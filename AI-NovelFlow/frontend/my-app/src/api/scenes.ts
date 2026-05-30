@@ -32,8 +32,8 @@ export const sceneApi = {
     api.post<Scene>(`/scenes/${sceneId}/generate-setting`),
 
   /** 生成场景图任务 */
-  generateImage: (sceneId: string) => 
-    api.post(`/scenes/${sceneId}/generate-image`),
+  generateImage: (sceneId: string, provider: 'comfyui' | 'webui' = 'comfyui') => 
+    api.post(`/scenes/${sceneId}/generate-image?provider=${provider}`),
 
   /** 上传场景图片 */
   uploadImage: async (sceneId: string, file: File) => {

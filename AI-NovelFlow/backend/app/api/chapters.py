@@ -8,6 +8,14 @@ from app.core.database import get_db
 from app.models.novel import Chapter
 from app.repositories import NovelRepository, ChapterRepository, CharacterRepository, SceneRepository, PropRepository
 from app.api.deps import get_novel_repo, get_chapter_repo, get_character_repo, get_scene_repo, get_prop_repo
+from app.schemas.storyboard import (
+    SegmentEnrichRequest,
+    SegmentSplitRequest,
+    StoryboardConvertRequest,
+    StoryboardGeneratePanelsRequest,
+    StoryboardNormalizeRequest,
+    VisualAssetExtractRequest,
+)
 from app.utils.time_utils import format_datetime
 from app.utils.text_utils import detect_encoding, parse_chapters_from_text
 
@@ -292,6 +300,255 @@ async def split_chapter(
         scene_names=scene_names,
         prop_names=prop_names
     )
+
+
+# ==================== storyboard segmentation and asset mapping ====================
+
+@router.get("/{novel_id}/chapters/{chapter_id}/segments", response_model=dict)
+async def get_chapter_segments(
+    novel_id: str,
+    chapter_id: str,
+    novel_repo: NovelRepository = Depends(get_novel_repo),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repo),
+    db: Session = Depends(get_db),
+):
+    """Return stored visual/cinematic segments for a chapter."""
+    novel = novel_repo.get_by_id(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="Novel not found")
+
+    chapter = chapter_repo.get_by_id(chapter_id, novel_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    from app.services.segment_service import SegmentService
+
+    return {
+        "success": True,
+        "data": SegmentService(db).get_segment_data(chapter),
+    }
+
+
+@router.post("/{novel_id}/chapters/{chapter_id}/segments/split", response_model=dict)
+async def split_chapter_segments(
+    novel_id: str,
+    chapter_id: str,
+    request: SegmentSplitRequest,
+    novel_repo: NovelRepository = Depends(get_novel_repo),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repo),
+    db: Session = Depends(get_db),
+):
+    """Split raw chapter text into reference-style visual/cinematic segments."""
+    novel = novel_repo.get_by_id(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="Novel not found")
+
+    chapter = chapter_repo.get_by_id(chapter_id, novel_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    from app.services.segment_service import SegmentService
+
+    return await SegmentService(db).split_chapter(chapter, overwrite=request.overwrite)
+
+
+@router.post("/{novel_id}/chapters/{chapter_id}/segments/enrich", response_model=dict)
+async def enrich_chapter_segments(
+    novel_id: str,
+    chapter_id: str,
+    request: SegmentEnrichRequest,
+    novel_repo: NovelRepository = Depends(get_novel_repo),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repo),
+    db: Session = Depends(get_db),
+):
+    """Enrich stored segments with beat, panel, emotion, location, and transition metadata."""
+    novel = novel_repo.get_by_id(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="Novel not found")
+
+    chapter = chapter_repo.get_by_id(chapter_id, novel_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    from app.services.segment_service import SegmentService
+
+    return await SegmentService(db).enrich_segments(chapter, overwrite=request.overwrite)
+
+@router.post("/{novel_id}/chapters/{chapter_id}/storyboard/extract-assets", response_model=dict)
+async def extract_storyboard_assets(
+    novel_id: str,
+    chapter_id: str,
+    request: VisualAssetExtractRequest,
+    novel_repo: NovelRepository = Depends(get_novel_repo),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repo),
+    db: Session = Depends(get_db),
+):
+    """
+    Extract a richer production asset library from chapter text.
+
+    This is the recommended preflight before split/shot generation when the
+    default character/scene/prop parsers under-detect visual assets.
+    """
+    novel = novel_repo.get_by_id(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="Novel not found")
+
+    chapter = chapter_repo.get_by_id(chapter_id, novel_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+    if not chapter.content:
+        return {"success": False, "message": "Chapter content is empty"}
+
+    from app.services.visual_asset_service import VisualAssetService
+
+    service = VisualAssetService(db)
+    return await service.extract_chapter_assets(
+        chapter=chapter,
+        store=request.store,
+        update_existing=request.update_existing,
+        max_characters=request.max_characters,
+        max_scenes=request.max_scenes,
+        max_props=request.max_props,
+        ensure_segments=request.ensure_segments,
+        enrich_segments=request.enrich_segments,
+    )
+
+
+@router.get("/{novel_id}/chapters/{chapter_id}/storyboard/assets", response_model=dict)
+async def get_storyboard_assets(
+    novel_id: str,
+    chapter_id: str,
+    novel_repo: NovelRepository = Depends(get_novel_repo),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repo),
+    db: Session = Depends(get_db),
+):
+    """Return the canonical Character/Scene/Prop library used for storyboard mapping."""
+    novel = novel_repo.get_by_id(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="å°è¯´ä¸å­˜åœ¨")
+
+    chapter = chapter_repo.get_by_id(chapter_id, novel_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="ç« èŠ‚ä¸å­˜åœ¨")
+
+    from app.services.storyboard_service import StoryboardService
+
+    service = StoryboardService(db)
+    return {
+        "success": True,
+        "data": service.get_asset_library(novel_id),
+    }
+
+
+@router.post("/{novel_id}/chapters/{chapter_id}/storyboard/generate-panels", response_model=dict)
+async def generate_storyboard_panels(
+    novel_id: str,
+    chapter_id: str,
+    request: StoryboardGeneratePanelsRequest,
+    novel_repo: NovelRepository = Depends(get_novel_repo),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repo),
+    db: Session = Depends(get_db),
+):
+    """Generate storyboard panels from enriched segments and optionally create Shot rows."""
+    novel = novel_repo.get_by_id(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="Novel not found")
+
+    chapter = chapter_repo.get_by_id(chapter_id, novel_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="Chapter not found")
+
+    from app.services.storyboard_service import StoryboardService
+
+    return await StoryboardService(db).generate_panels_from_segments(
+        chapter=chapter,
+        style=request.style,
+        store=request.store,
+        create_shots=request.create_shots,
+        overwrite_shots=request.overwrite_shots,
+        max_segments=request.max_segments,
+    )
+
+
+@router.post("/{novel_id}/chapters/{chapter_id}/storyboard/normalize-panels", response_model=dict)
+async def normalize_storyboard_panels(
+    novel_id: str,
+    chapter_id: str,
+    request: StoryboardNormalizeRequest,
+    novel_repo: NovelRepository = Depends(get_novel_repo),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repo),
+    db: Session = Depends(get_db),
+):
+    """
+    Normalize raw external panels against NovelFlow libraries.
+
+    The output is still editable JSON, but image/video prompts are composed from
+    canonical Character, Scene, and Prop records so visual identity is stable.
+    """
+    novel = novel_repo.get_by_id(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="å°è¯´ä¸å­˜åœ¨")
+
+    chapter = chapter_repo.get_by_id(chapter_id, novel_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="ç« èŠ‚ä¸å­˜åœ¨")
+
+    from app.services.storyboard_service import StoryboardService
+
+    service = StoryboardService(db)
+    data = service.normalize_panels(
+        chapter=chapter,
+        panels=request.panels,
+        style=request.style,
+        store=request.store,
+    )
+
+    if request.create_shots:
+        data = service.convert_panels_to_shots(
+            chapter=chapter,
+            panels=data.get("normalizedPanels", []),
+            style=request.style,
+            overwrite=request.overwrite_shots,
+            store=request.store,
+        )
+
+    return {
+        "success": True,
+        "data": data,
+    }
+
+
+@router.post("/{novel_id}/chapters/{chapter_id}/storyboard/convert-panels-to-shots", response_model=dict)
+async def convert_storyboard_panels_to_shots(
+    novel_id: str,
+    chapter_id: str,
+    request: StoryboardConvertRequest,
+    novel_repo: NovelRepository = Depends(get_novel_repo),
+    chapter_repo: ChapterRepository = Depends(get_chapter_repo),
+    db: Session = Depends(get_db),
+):
+    """Create NovelFlow Shot rows from normalized or raw storyboard panels."""
+    novel = novel_repo.get_by_id(novel_id)
+    if not novel:
+        raise HTTPException(status_code=404, detail="å°è¯´ä¸å­˜åœ¨")
+
+    chapter = chapter_repo.get_by_id(chapter_id, novel_id)
+    if not chapter:
+        raise HTTPException(status_code=404, detail="ç« èŠ‚ä¸å­˜åœ¨")
+
+    from app.services.storyboard_service import StoryboardService
+
+    service = StoryboardService(db)
+    return {
+        "success": True,
+        "data": service.convert_panels_to_shots(
+            chapter=chapter,
+            panels=request.panels,
+            style=request.style,
+            overwrite=request.overwrite,
+            store=request.store,
+        ),
+    }
 
 
 # ==================== 批量导入 ====================

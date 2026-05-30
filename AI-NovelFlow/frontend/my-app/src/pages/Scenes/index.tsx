@@ -14,6 +14,8 @@ import { ImagePreviewModal, SceneCard } from './components';
 import { ALLOWED_IMAGE_TYPES, POLL_CONFIG } from './constants';
 import type { ScenePrompt, PreviewImageState, DeleteAllConfirmDialog } from './types';
 
+type ImageProvider = 'comfyui' | 'webui';
+
 export default function Scenes() {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -32,6 +34,7 @@ export default function Scenes() {
   const [deleteAllConfirmDialog, setDeleteAllConfirmDialog] = useState<DeleteAllConfirmDialog>({ isOpen: false });
   const [previewImage, setPreviewImage] = useState<PreviewImageState>({ isOpen: false, url: null, name: '', sceneId: null });
   const [generatingAll, setGeneratingAll] = useState(false);
+  const [imageProvider, setImageProvider] = useState<ImageProvider>('comfyui');
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [currentUploadSceneId, setCurrentUploadSceneId] = useState<string | null>(null);
@@ -247,7 +250,7 @@ export default function Scenes() {
     
     setGeneratingId(scene.id);
     try {
-      const data = await sceneApi.generateImage(scene.id);
+      const data = await sceneApi.generateImage(scene.id, imageProvider);
       if (data.success) {
         setScenes(prev => prev.map(s => 
           s.id === scene.id ? { ...s, generatingStatus: 'running' } : s
@@ -338,7 +341,7 @@ export default function Scenes() {
     
     for (const scene of scenesToGenerate) {
       try {
-        const data = await sceneApi.generateImage(scene.id);
+        const data = await sceneApi.generateImage(scene.id, imageProvider);
         if (data.success) {
           successCount++;
           setScenes(prev => prev.map(s => 
@@ -475,6 +478,23 @@ export default function Scenes() {
           <p className="mt-1 text-sm text-gray-500">{t('scenes.subtitle')}</p>
         </div>
         <div className="flex gap-3">
+          <div className="flex items-center gap-1 rounded-md border border-gray-200 bg-white p-1 text-sm">
+            <span className="px-2 text-gray-500">Image source</span>
+            {(['comfyui', 'webui'] as ImageProvider[]).map((provider) => (
+              <button
+                key={provider}
+                type="button"
+                onClick={() => setImageProvider(provider)}
+                className={`rounded px-3 py-1.5 font-medium ${
+                  imageProvider === provider
+                    ? 'bg-green-100 text-green-700'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                {provider === 'comfyui' ? 'ComfyUI' : 'Web UI'}
+              </button>
+            ))}
+          </div>
           {filteredScenes.length > 0 && (
             <button
               onClick={generateAllSceneImages}

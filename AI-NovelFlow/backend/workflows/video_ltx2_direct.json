@@ -14,10 +14,6 @@
       "images": [
         "8",
         0
-      ],
-      "audio": [
-        "9",
-        0
       ]
     },
     "class_type": "VHS_VideoCombine",
@@ -222,10 +218,6 @@
       "video_vae": [
         "3",
         2
-      ],
-      "audio_vae": [
-        "2",
-        0
       ],
       "start_image": [
         "19",

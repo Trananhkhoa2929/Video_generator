@@ -67,7 +67,7 @@ export const shotsApi = {
    * 获取章节的所有分镜列表
    */
   getShots: async (novelId: string, chapterId: string): Promise<{ success: boolean; data: Shot[]; message?: string }> => {
-    const response = await fetch(`/api/novels/${novelId}/chapters/${chapterId}/shots/`);
+    const response = await fetch(`/api/novels/${novelId}/chapters/${chapterId}/shots`);
     return response.json();
   },
 
@@ -105,7 +105,7 @@ export const shotsApi = {
     shotId: string
   ): Promise<{ success: boolean; data?: { taskId: string; status: string }; message?: string }> => {
     const response = await fetch(
-      `/api/novels/${novelId}/chapters/${chapterId}/shots/${shotId}/generate/`,
+      `/api/novels/${novelId}/chapters/${chapterId}/shots/${shotId}/generate`,
       { method: 'POST' }
     );
     return response.json();
